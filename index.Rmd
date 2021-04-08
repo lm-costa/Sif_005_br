@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ## Required libraries 
-```{r}
+```{r,message=FALSE,warning=FALSE}
 library(raster)
 library(ncdf4)
 library(readxl)
@@ -14,15 +14,14 @@ library(tidyverse)
 library(ggpubr)
 library(geobr)
 library(sp)
-library(ggplot2)
 ```
 
 # Setting the pathway
 
-the data used in this code is only a part of the complete database, which can be found at: https://cornell.app.box.com/s/gkp4moy4grvqsus1q5oz7u5lc30i7o41/folder/100438579357
+the data used in this code is only a part of the complete database, which can be found at: <https://cornell.app.box.com/s/gkp4moy4grvqsus1q5oz7u5lc30i7o41/folder/100438579357>
 
 ```{r}
-setwd("C:/Users/luism/Desktop/sif_br/Nc_file/script")
+setwd("C:/Users/luism/Desktop/sif_br/Nc_file/script") # Deixar o endereço Relativo
 getwd()
 
 arch <- dir("../data/",pattern = ".nc")
