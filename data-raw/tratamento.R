@@ -1,6 +1,6 @@
 # Code to prepare sif dataset
 ## Load magrittr to PIPE
-library(magrittr)
+`%>%` <- magrittr::`%>%` 
 
 ## Creating a list of .xlsx files names
 files_names<-dir("data-raw/",pattern = ".xlsx")
