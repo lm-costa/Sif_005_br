@@ -1,0 +1,155 @@
+---
+title: "SIF 0.05°, Brazil"
+author: "L. M. Costa & A. R. Panosso"
+date: "06/04/2021"
+output: html_document
+---
+
+## Required libraries 
+```{r,message=FALSE,warning=FALSE}
+library(raster)
+library(ncdf4)
+library(readxl)
+library(tidyverse)
+library(ggpubr)
+library(geobr)
+library(sp)
+```
+
+# Setting the pathway
+
+the data used in this code is only a part of the complete database, which can be found at: <https://cornell.app.box.com/s/gkp4moy4grvqsus1q5oz7u5lc30i7o41/folder/100438579357>
+
+```{r}
+setwd("C:/Users/luism/Desktop/sif_br/Nc_file/script") # Deixar o endereço Relativo
+getwd()
+
+arch <- dir("../data/",pattern = ".nc")
+n_links <- length(arch)
+n_split <- length(str_split(arch[1],"/",simplify = TRUE))
+name.arch <- str_split_fixed(arch,"/",n=Inf)[,n_split]
+dir.arch <- paste0("../data/",name.arch)
+
+```
+
+Creating the data frame
+
+```{r}
+for(i in 1:n_links){
+  sif.005<-brick(dir.arch[i])
+  sif.005<- as.data.frame(sif.005[[1]], xy=T)
+  sif.005<- na.omit(sif.005)
+}
+
+```
+
+Changing the variable names
+```{r}
+sif.005 <- sif.005%>%
+  mutate(
+    Lon=x,
+    Lat=y,
+    Sif=layer
+  )
+```
+
+If you want to work with a specific region of the world, we recommend using this step for easier data processing
+```{r}
+sif.005 <- sif.005 %>% 
+  filter(
+    Lon < -30,
+    Lat < 10
+  )
+
+```
+
+Checking if the data exists for your region
+```{r}
+sif.005 %>% 
+  ggplot(aes(Lon,Lat))+
+  geom_point()
+```
+
+
+Creating the polygon for Brazil and making some necessary adjustments for the country
+
+```{r}
+br <- read_country(showProgress = FALSE)
+region <- read_region(showProgress = FALSE)
+
+pol.br <- as.matrix(br$geom[[1]])
+pol.br <- pol.br[pol.br[,1]<=-34,] # Adjustment 
+pol.br <- pol.br[!((pol.br[,1]>=-38.8 & pol.br[,1]<=-38.6) &
+                        (pol.br[,2]>= -19 & pol.br[,2]<= -16)),]
+
+pol_NE <- as.matrix(region$geom[[2]]) # pol North Easth
+pol_NE <- pol_NE[pol_NE[,1]<=-34,]# Adjustment
+pol_NE <- pol_NE[!((pol_NE[,1]>=-38.7 & pol_NE[,1]<=-38.6) &
+                                 pol_NE[,2]<= -15),]
+```
+
+Creating a *Logical* variable for extract only the points in Brazil
+
+```{r}
+sif.005 <- sif.005 %>% 
+  mutate(
+    point_in_pol = as.logical(point.in.polygon(point.x = Lon, 
+                                               point.y = Lat,
+                                               pol.x = pol.br[,1],
+                                               pol.y = pol.br[,2])
+                              |
+                                point.in.polygon(point.x = Lon, 
+                                                 point.y = Lat,
+                                                 pol.x = pol_NE[,1],
+                                                 pol.y = pol_NE[,2])  
+                                )
+  )
+
+# Checking if works 
+ggplot(br) + 
+  theme_minimal() +
+  geom_point(data=sif.005 %>% filter(point_in_pol),
+             aes(x=Lon,y=Lat))
+```
+
+Filtering the data
+
+```{r}
+
+sif.005 <- sif.005 %>%
+  filter(point_in_pol != FALSE)
+```
+
+Checking for outliers and cleaning them from the database
+```{r}
+
+sif.005 %>% 
+  ggplot(aes(y=Sif))+
+  geom_boxplot(fill="dark green",outlier.colour = "black")+
+  coord_cartesian(xlim=c(-1,1))+
+  theme_classic()
+
+# creating the coefficients 
+qnt <- quantile(sif.005$Sif, probs=c(.25,.75))
+h <- 1.5*IQR(sif.005$Sif)
+
+# cleaning 
+sif.005 <- sif.005 %>% 
+  filter(
+    Sif < qnt[2]-h,
+    Sif > qnt[1]-h
+  )
+# final check 
+sif.005 %>% 
+  ggplot(aes(y=Sif))+
+  geom_boxplot(fill="dark green",outlier.colour = "black")+
+  coord_cartesian(xlim=c(-1,1))+
+  theme_classic()
+```
+
+Save the final data frame on a *CSV* file 
+```{r}
+#write.csv(sif.005, file="C:/Users/SIF.csv")
+```
+
+
