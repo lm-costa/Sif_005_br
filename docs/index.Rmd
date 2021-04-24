@@ -27,41 +27,42 @@ dir.arch <- paste0("../data-raw/",name.arch)
 
 ```
 
-Creating the data frame
+Creating the data frame and filtering for Brazil
+
+where: x= lon
+y=lat
 
 ```{r}
 for(i in 1:n_links){
-  sif.005<-raster::brick(dir.arch[i])
+  if(i==1){
+      sif.005<-raster::brick(dir.arch[i])
   sif.005<- raster::as.data.frame(sif.005[[1]], xy=T)
   sif.005<- na.omit(sif.005)
+  sif.005 <- sif.005 %>% 
+    dplyr::filter(
+      x < -30,
+      y < 10
+    )
+  } else {
+     sif.005a<-raster::brick(dir.arch[i])
+     sif.005a<- raster::as.data.frame(sif.005a[[1]], xy=T)
+     sif.005a<- na.omit(sif.005a)
+     sif.005a <- sif.005a %>% 
+       dplyr::filter(
+         x < -30,
+         y < 10
+         )
+     sif.005 <- rbind(sif.005,sif.005a)
+  }
 }
 
 ```
 
-Changing the variable names
-```{r}
-sif.005 <- sif.005 %>%
-  dplyr::mutate(
-    Lon=x,
-    Lat=y,
-    Sif=layer
-  )
-```
-
-If you want to work with a specific region of the world, we recommend using this step for easier data processing
-```{r}
-sif.005 <- sif.005 %>% 
-  dplyr::filter(
-    Lon < -30,
-    Lat < 10
-  )
-
-```
 
 Checking if the data exists for your region
 ```{r}
 sif.005 %>% 
-  ggplot2::ggplot(ggplot2::aes(Lon,Lat))+
+  ggplot2::ggplot(ggplot2::aes(x,y))+
   ggplot2::geom_point()
 ```
 
@@ -90,13 +91,13 @@ Creating a *Logical* variable for extract only the points in Brazil
 
 sif.005 <- sif.005 %>% 
   dplyr::mutate(
-    point_in_pol = as.logical(sp::point.in.polygon(point.x = Lon, 
-                                               point.y = Lat,
+    point_in_pol = as.logical(sp::point.in.polygon(point.x = x, 
+                                               point.y = y,
                                                pol.x = pol.br[,1],
                                                pol.y = pol.br[,2])
                               |
-                                sp::point.in.polygon(point.x = Lon, 
-                                                 point.y = Lat,
+                                sp::point.in.polygon(point.x = x, 
+                                                 point.y = y,
                                                  pol.x = pol_NE[,1],
                                                  pol.y = pol_NE[,2])  
                                 )
@@ -106,7 +107,7 @@ sif.005 <- sif.005 %>%
 ggplot2::ggplot(br) + 
   ggplot2::theme_minimal() +
   ggplot2::geom_point(data=sif.005 %>% dplyr::filter(point_in_pol),
-             ggplot2::aes(x=Lon,y=Lat))
+             ggplot2::aes(x=x,y=y))
 ```
 
 Filtering the data
@@ -119,31 +120,7 @@ sif.005 <- sif.005 %>%
 
 Checking for outliers and cleaning them from the database
 obs: if you need, use this step more than one time
-```{r}
 
-sif.005 %>% 
-  ggplot2::ggplot(ggplot2::aes(y=Sif))+
-  ggplot2::geom_boxplot(fill="dark green",outlier.colour = "black")+
-  ggplot2::coord_cartesian(xlim=c(-1,1))+
-  ggplot2::theme_classic()
-
-# creating the coefficients 
-qnt <- quantile(sif.005$Sif, probs=c(.25,.75))
-h <- 1.5*IQR(sif.005$Sif)
-
-# cleaning 
-sif.005 <- sif.005 %>% 
-  dplyr::filter(
-    Sif < qnt[2]-h,
-    Sif > qnt[1]-h
-  )
-# final check 
-sif.005 %>% 
-  ggplot2::ggplot(ggplot2::aes(y=Sif))+
-  ggplot2::geom_boxplot(fill="dark green",outlier.colour = "black")+
-  ggplot2::coord_cartesian(xlim=c(-1,1))+
-  ggplot2::theme_classic()
-```
 
 Save the final data frame on a *CSV* file 
 ```{r}
