@@ -14,12 +14,14 @@ sp
 
 # Setting the pathway
 
-the data showed in this code is only a part of the complete database, which can be found at: <https://cornell.app.box.com/s/gkp4moy4grvqsus1q5oz7u5lc30i7o41/folder/100438579357>
+the data showed in this code is only a part of the complete database, which can be found at: <https://daac.ornl.gov/cgi-bin/dsviewer.pl?ds_id=1696>
+
+The process show here was use for each year and we create a csv file for each year, you can check in the folder data. 
 
 ```{r}
 `%>%` <- magrittr::`%>%` 
 
-arch <- dir("../data-raw/", pattern = ".nc")
+arch <- dir("../data-raw/", pattern = ".nc") #set the year here insted ".nc"
 n_links <- length(arch)
 n_split <- length(stringr::str_split(arch[1],"/",simplify = TRUE))
 name.arch <- stringr::str_split_fixed(arch,"/",n=Inf)[,n_split]
@@ -29,8 +31,7 @@ dir.arch <- paste0("../data-raw/",name.arch)
 
 Creating the data frame and filtering for Brazil
 
-where: x= lon
-y=lat
+where: x= lon and y=lat
 
 ```{r}
 for(i in 1:n_links){
@@ -121,10 +122,54 @@ sif.005 <- sif.005 %>%
 Checking for outliers and cleaning them from the database
 obs: if you need, use this step more than one time
 
+```{r}
+sif.005 %>%
+  ggplot2:: ggplot(ggplot2::aes(y=layer))+
+  ggplot2::geom_boxplot(fill="green",outlier.colour = "black")+
+  ggplot2::coord_cartesian(xlim=c(-1,1))+
+  ggplot2::theme_classic()
+
+```
+
+Creating a function and applaying on the data
+
+```{r}
+remove_outlier <- function(x,coefi=1.5){
+  med = median(x)
+  li = med - coefi*IQR(x)
+  ls = med + coefi*IQR(x)
+  c(Lim_Inf = li, Lim_Sup = ls)
+}
+
+sif.005 <-  sif.005 %>%
+  dplyr::filter(
+    layer > remove_outlier(sif.005$layer)[1] &
+      layer < remove_outlier(sif.005$layer)[2]
+  )
+
+```
+
+Creating the final dataframe
+```{r}
+
+sif.005 <- sif.005 %>%
+  dplyr::mutate(coord = stringr::str_c(x,y, sep= ":")) %>%
+  dplyr::group_by(coord) %>%
+  dplyr::summarise(sif = mean(layer))
+
+coords = data.frame(stringr::str_split(sif.005$coord, ":", n=Inf,simplify = T))
+
+sif.005<- sif.005 %>%
+  dplyr::mutate(
+    lon = coords$X1,
+    lat = coords$X2) %>%
+  dplyr::select(lon, lat, sif)
+```
+
 
 Save the final data frame on a *CSV* file 
 ```{r}
-#write.csv(sif.005, file="C:/Users/SIF.csv")
+#write.csv(sif.005, file="data/sifyyyy.csv")
 ```
 
 
